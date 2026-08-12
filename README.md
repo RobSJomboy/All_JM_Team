@@ -49,11 +49,16 @@ another player's face.
 
 ## Petals and the Silver Daisy
 
-Locking a player in for a month earns a **silver petal**. Unlocking takes it back — otherwise a
-mis-click quietly inflates someone's flower for the rest of the season.
+Locking a player in for a month adds a **petal to their flower**. Unlocking takes it back —
+otherwise a mis-click quietly inflates someone's flower for the rest of the season.
 
-Win **every month taped so far** and the petals become **The Silver Daisy**: a full flower with a
-gold centre, turning slowly. A sweep is counted against months that actually have a locked roster
+The petals are the flower: one win is a single petal, and they fill out into a daisy as the months
+stack up. Petals sit evenly around the circle rather than at their month's angle — placed by month,
+three wins sat as a lopsided fan on one side; evenly spaced, any count reads as a deliberate flower.
+
+Win **every month taped so far** and the centre lights **gold** and the flower turns slowly: that's
+**The Silver Daisy**. Miss a month and the daisy is out of reach, so nothing extra is drawn — the
+flower is just silver-centred. A sweep is counted against months that actually have a locked roster
 rather than the calendar, and needs at least two of them, so nobody collects one in the season's
 first episode.
 
