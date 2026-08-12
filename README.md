@@ -106,9 +106,16 @@ quarter. Not a mock — a mock drifts from the real thing exactly when it matter
 Both pages subscribe to a named topic on [ntfy.sh](https://ntfy.sh), so the two machines don't have
 to be on the same network — or in the same building. Nothing to install.
 
-**It doesn't depend on one host.** ntfy.sh went down mid-use once, so the control publishes to
-several public ntfy instances and the output subscribes to all of them. Any one being up is enough,
-with no reconfiguring mid-show. `?ntfy=https://host` pins a single host if you ever need to.
+**Better: use your own relay.** The public ntfy hosts keep going down. The
+[Trade Snapshot repo](https://github.com/RobSJomboy/mlb_stats) carries a `relay/` folder — a small
+Cloudflare Worker, free plan, no card. Deploy it once (`npx wrangler login && npx wrangler deploy`),
+paste the `https://…workers.dev` URL into the **Relay** box and hit **Use Relay**. The output holds
+a WebSocket to it, so pushes are instant and a refreshed Browser Source is caught up the moment it
+connects. The relay URL rides along in the copied links, so the other machine inherits it.
+
+**ntfy stays wired as an automatic fallback.** With no relay set — or if it can't be reached —
+publishing goes to several public ntfy instances and the output subscribes to all of them. The
+Connection pill names whichever path carried it. `?ntfy=https://host` pins a single host.
 
 **Topics are public to anyone who knows the name**, so the suggested one carries a random tail. Don't
 shorten it to something guessable — that's a stranger's write access to your graphics.

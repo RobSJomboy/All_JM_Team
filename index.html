@@ -348,6 +348,9 @@
     <span class="pill" id="connStatus">not connected</span>
     <button id="copyOutBtn" type="button" disabled>Copy OBS URL</button>
     <button id="copyCtlBtn" type="button" disabled>Copy Control URL</button>
+    <input type="text" id="hubInput" placeholder="Relay URL — https://…workers.dev (optional)"
+      spellcheck="false" style="min-width:260px;font-family:var(--font-mono);font-size:12px">
+    <button id="hubSave" type="button">Use Relay</button>
     <span class="hint" id="connHint"></span>
     <span class="hint" id="seedNote"></span>
   </div>
@@ -410,6 +413,17 @@ const BUILD = (document.lastModified || '').replace(/\D/g, '').slice(0, 14);
 
 // ── transport: identical scheme to Trade Snapshot, several hosts so one going down
 //    doesn't take the show with it ──────────────────────────────────────────────
+// Your own Cloudflare relay when one is set — primary path, because the public ntfy instances kept
+// going down mid-show. ntfy stays wired as an automatic fallback.
+const RELAY_KEY_STORE = 'alljm-relay-url';
+function initialRelay() {
+  const p = params.get('relay2') || params.get('hub') || '';
+  if (p) return p.replace(/\/$/, '');
+  try { return (localStorage.getItem(RELAY_KEY_STORE) || '').replace(/\/$/, ''); } catch { return ''; }
+}
+let HUB = initialRelay();
+const hubURL = room => `${HUB}/r/${encodeURIComponent(room)}`;
+
 const NTFY_HOSTS = params.get('ntfy') ? [params.get('ntfy').replace(/\/$/, '')]
   : ['https://ntfy.sh', 'https://ntfy.envs.net', 'https://ntfy.adminforge.de'];
 const TOPIC_KEY = 'alljm-topic';
@@ -724,10 +738,22 @@ function publish() {
   if (chan) chan.postMessage(payload);
   const body = JSON.stringify(payload);
   if (!TOPIC) return;
+  if (HUB) {
+    // A relay failure isn't a dead connection if the fallback carries it — don't flash red while
+    // you're actually on air.
+    fetch(hubURL(TOPIC), { method: 'POST', body })
+      .then(r => { if (r.ok) setConn(true, 'relay'); else ntfyPublish(body); })
+      .catch(() => ntfyPublish(body));
+    return;
+  }
+  ntfyPublish(body);
+}
+
+function ntfyPublish(body) {
   let ok = false, done = 0;
   NTFY_HOSTS.forEach(h => fetch(`${h}/${encodeURIComponent(TOPIC)}`, { method: 'POST', body })
     .then(r => { if (r.ok) ok = true; }).catch(() => {})
-    .finally(() => { if (++done === NTFY_HOSTS.length) setConn(ok); }));
+    .finally(() => { if (++done === NTFY_HOSTS.length) setConn(ok, 'ntfy'); }));
 }
 
 // ── output rendering ──────────────────────────────────────────────────────────
@@ -864,10 +890,11 @@ function applyAir(s) {
 }
 
 // ── wiring ────────────────────────────────────────────────────────────────────
-function setConn(ok) {
+function setConn(ok, via) {
   const p = $('connStatus'); if (!p) return;
   p.classList.toggle('ok', !!ok);
-  p.textContent = ok ? 'connected' : (TOPIC ? 'not reaching topic' : 'not connected');
+  p.textContent = ok ? (via ? `connected · ${via}` : 'connected')
+                     : (TOPIC ? 'not reaching topic' : 'not connected');
   $('copyOutBtn').disabled = !TOPIC;
   $('copyCtlBtn').disabled = !TOPIC;
   const h = $('connHint');
@@ -875,8 +902,10 @@ function setConn(ok) {
   else if (TOPIC) { h.textContent = 'Copy the OBS URL into a Browser Source · 1920×1080'; h.className = 'hint'; }
   else { h.textContent = 'Pick any topic name — both computers connect to the same one.'; h.className = 'hint'; }
 }
-const outURL = () => `${location.href.split(/[?#]/)[0]}?output=1&topic=${encodeURIComponent(TOPIC)}` + (BUILD ? `&v=${BUILD}` : '');
-const ctlURL = () => `${location.href.split(/[?#]/)[0]}?topic=${encodeURIComponent(TOPIC)}`;
+const relayParam = () => (HUB ? `&relay2=${encodeURIComponent(HUB)}` : '');
+const outURL = () => `${location.href.split(/[?#]/)[0]}?output=1&topic=${encodeURIComponent(TOPIC)}`
+  + relayParam() + (BUILD ? `&v=${BUILD}` : '');
+const ctlURL = () => `${location.href.split(/[?#]/)[0]}?topic=${encodeURIComponent(TOPIC)}` + relayParam();
 function copyText(t) {
   if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(t);
   return new Promise((res, rej) => {
@@ -1007,6 +1036,21 @@ function connect() {
   try { localStorage.setItem(TOPIC_KEY, TOPIC); } catch {}
   setConn(true); publish(); loadPreview(true);
 }
+$('hubSave').onclick = () => {
+  HUB = ($('hubInput').value || '').trim().replace(/\/$/, '');
+  try { HUB ? localStorage.setItem(RELAY_KEY_STORE, HUB) : localStorage.removeItem(RELAY_KEY_STORE); } catch {}
+  const h = $('connHint');
+  if (!HUB) { h.textContent = 'Relay cleared — back to the public ntfy hosts.'; h.className = 'hint'; loadPreview(true); return; }
+  fetch(HUB + '/', { cache: 'no-store' }).then(r => r.json()).then(j => {
+    const good = j && j.service === 'jomboy-relay';
+    h.textContent = good ? 'Relay reachable. It rides along in the copied links.'
+                         : "That URL answered, but it isn't the relay — check the workers.dev root.";
+    h.className = good ? 'hint' : 'hint warn';
+  }).catch(() => { h.textContent = "Can't reach that relay URL."; h.className = 'hint warn'; });
+  if (TOPIC) publish();
+  loadPreview(true);
+};
+
 $('connectBtn').onclick = connect;
 $('topicInput').onkeydown = e => { if (e.key === 'Enter') connect(); };
 
@@ -1014,7 +1058,28 @@ $('topicInput').onkeydown = e => { if (e.key === 'Enter') connect(); };
 if (isOutput) {
   const apply = env => { if (env && env.message) { try { applyAir(JSON.parse(env.message)); } catch {} } };
   if (chan) chan.onmessage = e => applyAir(e.data);
-  if (TOPIC) NTFY_HOSTS.forEach(host => {
+  if (TOPIC && HUB) {
+    // WebSocket to your relay, with a slow poll behind it in case a network eats the upgrade
+    let ws = null, lastAt = Date.now();
+    const open = () => {
+      try {
+        ws = new WebSocket(hubURL(TOPIC).replace(/^http/, 'ws'));
+        ws.onmessage = ev => { lastAt = Date.now(); try { applyAir(JSON.parse(ev.data)); } catch {} };
+        ws.onopen = () => { lastAt = Date.now(); };
+      } catch {}
+    };
+    open();
+    setInterval(() => {
+      if (!ws || ws.readyState > 1 || Date.now() - lastAt > 45000) { try { ws && ws.close(); } catch {} open(); lastAt = Date.now(); }
+    }, 5000);
+    const poll = async () => {
+      try {
+        const t = await (await fetch(hubURL(TOPIC) + '?t=' + Date.now(), { cache: 'no-store' })).text();
+        if (t && t !== 'null') { lastAt = Date.now(); applyAir(JSON.parse(t)); }
+      } catch {}
+    };
+    poll(); setInterval(poll, 15000);
+  } else if (TOPIC) NTFY_HOSTS.forEach(host => {
     let es = null, last = Date.now();
     const open = () => { if (es) es.close(); es = new EventSource(`${host}/${encodeURIComponent(TOPIC)}/sse`);
       es.onmessage = ev => { last = Date.now(); try { apply(JSON.parse(ev.data)); } catch {} };
@@ -1036,6 +1101,7 @@ if (isOutput) {
   });
 } else {
   $('buildStamp').textContent = document.lastModified || '—';
+  $('hubInput').value = HUB;
   const yr = new Date().getFullYear();
   $('seasonSel').innerHTML = Array.from({ length: 4 }, (_, i) => yr - i).map(y => `<option>${y}</option>`).join('');
   $('seasonSel').value = store.season;
