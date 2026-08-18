@@ -196,6 +196,10 @@
   .btn-red{background:none;color:var(--red);border-color:rgba(255,107,107,.4)}
   .btn-red:hover{background:var(--red);color:var(--navy-dark);border-color:var(--red)}
 
+  .stale-warn{margin-top:12px;padding:11px 15px;border-radius:var(--radius);
+    background:rgba(255,107,107,.16);border:1px solid rgba(255,107,107,.5);color:#ffd9d9;
+    font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+  .stale-warn b{color:#fff}
   .bar{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}
   .panel{background:var(--gold-dim2,rgba(251,204,122,.07));border:1px solid var(--border);
     border-radius:var(--radius);padding:11px 14px;margin-bottom:14px}
@@ -1111,6 +1115,20 @@ if (isOutput) {
   });
 } else {
   $('buildStamp').textContent = document.lastModified || '—';
+  // A stale cached copy fails in ways that look like a broken transport. Say so outright.
+  (async () => {
+    try {
+      const r = await fetch(location.pathname + '?bust=' + Date.now(), { cache: 'no-store' });
+      const served = r.headers.get('last-modified');
+      if (!served) return;
+      if (Math.abs(new Date(served) - new Date(document.lastModified)) > 60000) {
+        const b = el('div', 'stale-warn');
+        b.innerHTML = 'You are running an <b>old cached copy</b> of this page. '
+          + 'Press <b>Cmd+Shift+R</b>, then re-copy the OBS URL.';
+        document.querySelector('header').appendChild(b);
+      }
+    } catch {}
+  })();
   $('hubInput').value = HUB;
   const yr = new Date().getFullYear();
   $('seasonSel').innerHTML = Array.from({ length: 4 }, (_, i) => yr - i).map(y => `<option>${y}</option>`).join('');
