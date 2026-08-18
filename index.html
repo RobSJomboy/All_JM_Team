@@ -424,6 +424,11 @@ function initialRelay() {
 let HUB = initialRelay();
 const hubURL = room => `${HUB}/r/${encodeURIComponent(room)}`;
 
+// A dead host's fetch never settles on its own: it hangs, fills the connection pool, and any
+// bookkeeping waiting on it never runs.
+const NET_TIMEOUT_MS = 6000;
+const tfetch = (url, opts) => fetch(url, { ...(opts || {}), signal: AbortSignal.timeout(NET_TIMEOUT_MS) });
+
 const NTFY_HOSTS = params.get('ntfy') ? [params.get('ntfy').replace(/\/$/, '')]
   : ['https://ntfy.sh', 'https://ntfy.envs.net', 'https://ntfy.adminforge.de'];
 const TOPIC_KEY = 'alljm-topic';
@@ -741,7 +746,7 @@ function publish() {
   if (HUB) {
     // A relay failure isn't a dead connection if the fallback carries it — don't flash red while
     // you're actually on air.
-    fetch(hubURL(TOPIC), { method: 'POST', body })
+    tfetch(hubURL(TOPIC), { method: 'POST', body })
       .then(r => { if (r.ok) setConn(true, 'relay'); else ntfyPublish(body); })
       .catch(() => ntfyPublish(body));
     return;
@@ -750,10 +755,12 @@ function publish() {
 }
 
 function ntfyPublish(body) {
+  // Green on the FIRST host that takes it — waiting for all of them let one dead host hold the
+  // verdict forever, so the pill read red while the graphic was already out.
   let ok = false, done = 0;
-  NTFY_HOSTS.forEach(h => fetch(`${h}/${encodeURIComponent(TOPIC)}`, { method: 'POST', body })
-    .then(r => { if (r.ok) ok = true; }).catch(() => {})
-    .finally(() => { if (++done === NTFY_HOSTS.length) setConn(ok, 'ntfy'); }));
+  NTFY_HOSTS.forEach(h => tfetch(`${h}/${encodeURIComponent(TOPIC)}`, { method: 'POST', body })
+    .then(r => { if (r.ok && !ok) { ok = true; setConn(true, 'ntfy'); } }).catch(() => {})
+    .finally(() => { if (++done === NTFY_HOSTS.length && !ok) setConn(false); }));
 }
 
 // ── output rendering ──────────────────────────────────────────────────────────
@@ -871,7 +878,10 @@ function paintVerdict(j) {
 }
 
 function applyAir(s) {
-  if (!s || (s.seq != null && s.seq <= lastSeq)) return;   // ignore a late or duplicated message
+  // Anything on the topic that isn't one of our states — a stray probe, another tool — must be
+  // ignored rather than treated as "show nothing" and blanking a live graphic.
+  if (!s || typeof s !== 'object' || typeof s.graphic !== 'string') return;
+  if (s.seq != null && s.seq <= lastSeq) return;           // late or duplicated
   lastSeq = s.seq != null ? s.seq : lastSeq;
   const shell = $('shell');
   const wantShell = s.graphic === 'roster';
@@ -1074,7 +1084,7 @@ if (isOutput) {
     }, 5000);
     const poll = async () => {
       try {
-        const t = await (await fetch(hubURL(TOPIC) + '?t=' + Date.now(), { cache: 'no-store' })).text();
+        const t = await (await tfetch(hubURL(TOPIC) + '?t=' + Date.now(), { cache: 'no-store' })).text();
         if (t && t !== 'null') { lastAt = Date.now(); applyAir(JSON.parse(t)); }
       } catch {}
     };
@@ -1091,7 +1101,7 @@ if (isOutput) {
       const f = from != null ? from : since;
       if (from == null) since = Math.floor(Date.now() / 1000);
       try {
-        const txt = await (await fetch(`${host}/${encodeURIComponent(TOPIC)}/json?poll=1&since=${f}`)).text();
+        const txt = await (await tfetch(`${host}/${encodeURIComponent(TOPIC)}/json?poll=1&since=${f}`)).text();
         last = Date.now();
         txt.split('\n').filter(Boolean).forEach(l => { try { apply(JSON.parse(l)); } catch {} });
       } catch {}
