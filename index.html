@@ -122,42 +122,90 @@
     text-transform:uppercase;letter-spacing:1px}
   .tick-item .jm-petals{transform:scale(1.15)}
 
-  /* ── Judge Jomboy ── */
-  #judge{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    opacity:0;pointer-events:none;transition:opacity .4s ease}
-  #judge.visible{opacity:1}
-  .judge-card{width:1180px;background:rgba(8,20,32,.94);border:3px solid var(--air-gold);
-    border-radius:22px;box-shadow:0 30px 90px rgba(0,0,0,.7);padding:34px 40px 40px;text-align:center}
-  .judge-kicker{font-family:var(--font-air);font-weight:700;font-size:26px;letter-spacing:8px;
-    color:var(--air-gold);text-transform:uppercase}
-  .judge-title{font-family:var(--font-air);font-weight:700;font-size:82px;line-height:1;
-    letter-spacing:2px;text-transform:uppercase;margin:6px 0 4px;
-    text-shadow:0 3px 10px rgba(0,0,0,.8)}
-  .judge-slot{font-family:var(--font-air);font-size:28px;color:rgba(255,255,255,.7);
-    letter-spacing:3px;text-transform:uppercase;margin-bottom:26px}
-  .judge-pair{display:flex;align-items:stretch;justify-content:center;gap:26px}
-  .judge-side{flex:1;max-width:430px;background:rgba(23,58,86,.55);border:2px solid rgba(255,255,255,.14);
-    border-radius:16px;padding:20px 16px;transition:all .45s ease}
-  .judge-side .who{font-family:var(--font-air);font-weight:700;font-size:24px;letter-spacing:4px;
+  /* ── Judge Jomboy ──
+     Both graphics are lower thirds pinned to the same spot, so the ruling replaces the argument
+     without the frame jumping: #judge is the two picks side by side with each player's line for the
+     month, #verdictLT is the winner alone. They sit at bottom:96px, clear of the 78px ticker, so a
+     running scroll doesn't collide with either.
+
+     Both start hidden and BOTH need their .visible rule to exist. #verdictLT once had markup and no
+     CSS at all: an unstyled block renders at full size at the top of the stage, and removing
+     .visible from an element with no .visible rule does nothing — so the last winner's headshot sat
+     on air forever and Clear All couldn't take it down. */
+  .jm-lt{position:absolute;left:80px;bottom:96px;width:1160px;
+    background:linear-gradient(180deg,rgba(8,20,32,.95) 0%,rgba(13,34,51,.95) 100%);
+    border:2px solid var(--air-gold);border-left:8px solid var(--air-gold);border-radius:14px;
+    box-shadow:0 22px 60px rgba(0,0,0,.7);overflow:hidden;
+    opacity:0;transform:translateY(26px);pointer-events:none;
+    transition:opacity .3s ease, transform .45s cubic-bezier(.16,.84,.32,1)}
+  .jm-lt.visible{opacity:1;transform:translateY(0)}
+
+  .lt-head{display:flex;align-items:center;gap:14px;padding:9px 22px;
+    background:rgba(200,168,75,.16);border-bottom:2px solid rgba(200,168,75,.5)}
+  .lt-kicker{font-family:var(--font-air);font-weight:700;font-size:25px;letter-spacing:6px;
+    color:var(--air-gold);text-transform:uppercase;white-space:nowrap}
+  .lt-slot{margin-left:auto;font-family:var(--font-air);font-weight:700;font-size:22px;
+    letter-spacing:3px;color:rgba(255,255,255,.78);text-transform:uppercase;white-space:nowrap}
+
+  /* ─ the argument: Trev's pick vs Jake's ─ */
+  .judge-pair{display:flex;align-items:stretch}
+  .judge-side{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:16px;padding:15px 20px;
+    transition:opacity .45s ease, filter .45s ease, background .45s ease}
+  .judge-side img{width:92px;height:92px;border-radius:50%;object-fit:cover;flex-shrink:0;
+    background:#173a56;border:3px solid rgba(255,255,255,.28);transition:border-color .45s ease}
+  .judge-side .col{min-width:0;flex:1}
+  .judge-side .who{font-family:var(--font-air);font-weight:700;font-size:19px;letter-spacing:4px;
     color:#9fb4cc;text-transform:uppercase}
-  .judge-side img{width:132px;height:132px;border-radius:50%;object-fit:cover;margin:12px auto 10px;
-    display:block;background:#173a56;border:3px solid rgba(255,255,255,.25)}
-  .judge-side .pick{font-family:var(--font-air);font-weight:700;font-size:36px;line-height:1.04;
-    text-transform:uppercase}
-  .judge-side .tm{font-family:var(--font-air);font-size:18px;color:rgba(255,255,255,.55);
-    text-transform:uppercase;letter-spacing:1px;margin-top:4px}
-  .judge-vs{align-self:center;font-family:var(--font-air);font-weight:700;font-size:44px;
-    color:var(--air-gold);letter-spacing:2px}
-  .judge-side.win{border-color:var(--air-gold);background:rgba(200,168,75,.18);
-    box-shadow:0 0 40px rgba(200,168,75,.45);transform:scale(1.05)}
-  .judge-side.win img{border-color:var(--air-gold)}
-  .judge-side.lose{opacity:.32;filter:grayscale(1)}
-  .judge-verdict{font-family:var(--font-air);font-weight:700;font-size:40px;letter-spacing:5px;
-    color:var(--air-gold);text-transform:uppercase;margin-top:24px;min-height:48px;
-    opacity:0;transform:translateY(10px);transition:all .4s ease .25s}
-  .judge-verdict.show{opacity:1;transform:translateY(0)}
-  .gavel{display:inline-block;animation:gavelBang .7s ease-in-out}
+  .judge-side .pick{font-family:var(--font-air);font-weight:700;font-size:38px;line-height:1.02;
+    text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    text-shadow:0 2px 3px rgba(0,0,0,.8)}
+  .judge-side .tm{font-family:var(--font-air);font-weight:700;font-size:18px;color:var(--air-gold);
+    text-transform:uppercase;letter-spacing:2px;margin-top:2px}
+  .judge-vs{align-self:stretch;display:flex;align-items:center;padding:0 4px;
+    font-family:var(--font-air);font-weight:700;font-size:30px;color:var(--air-gold);
+    letter-spacing:1px;border-left:2px solid rgba(255,255,255,.14);
+    border-right:2px solid rgba(255,255,255,.14);background:rgba(0,0,0,.3)}
+  .judge-side.win{background:rgba(200,168,75,.2)}
+  .judge-side.win img{border-color:var(--air-gold);box-shadow:0 0 22px rgba(200,168,75,.6)}
+  .judge-side.lose{opacity:.3;filter:grayscale(1)}
+
+  /* ─ the stat line: label over value, so four numbers read at a glance ─ */
+  .statline{display:flex;gap:14px;margin-top:7px;flex-wrap:nowrap}
+  .stat{min-width:0}
+  .stat .k{font-family:var(--font-air);font-weight:700;font-size:13px;letter-spacing:2px;
+    color:rgba(255,255,255,.5);text-transform:uppercase;line-height:1}
+  .stat .v{font-family:var(--font-air);font-weight:700;font-size:26px;line-height:1.05;
+    color:#fff;letter-spacing:1px;white-space:nowrap}
+  .statline .none{font-family:var(--font-air);font-size:17px;letter-spacing:2px;
+    color:rgba(255,255,255,.32);text-transform:uppercase}
+
+  .judge-verdict{font-family:var(--font-air);font-weight:700;font-size:27px;letter-spacing:5px;
+    color:var(--air-gold);text-transform:uppercase;text-align:center;
+    padding:0 20px;max-height:0;opacity:0;overflow:hidden;
+    background:rgba(200,168,75,.14);border-top:2px solid rgba(200,168,75,.45);
+    transition:max-height .4s ease, opacity .3s ease .15s, padding .4s ease}
+  .judge-verdict.show{max-height:56px;opacity:1;padding:12px 20px}
+  /* Drawn rather than typed: the ⚖ character is a thin, light glyph that all but disappears beside
+     Rift's caps at lower-third size, and it swings from the wrong point. This one is solid gold at
+     any size and pivots on the post, so the tilt reads as scales tipping. */
+  .gavel{display:inline-block;width:27px;height:27px;vertical-align:-6px;margin-right:5px;
+    color:var(--air-gold);transform-origin:50% 16%;
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,.7));animation:gavelBang .7s ease-in-out}
   @keyframes gavelBang{0%,100%{transform:rotate(0)}30%{transform:rotate(-28deg)}55%{transform:rotate(8deg)}}
+
+  /* ─ the ruling: the winner alone, with the petal they just earned ─ */
+  .vlt-bar{display:flex;align-items:center;gap:18px;padding:15px 22px}
+  .vlt-shot{width:96px;height:96px;border-radius:50%;object-fit:cover;flex-shrink:0;
+    background:#173a56;border:3px solid var(--air-gold);box-shadow:0 0 22px rgba(200,168,75,.55)}
+  .vlt-body{min-width:0;flex:1}
+  .vlt-kicker{font-family:var(--font-air);font-weight:700;font-size:20px;letter-spacing:6px;
+    color:var(--air-gold);text-transform:uppercase}
+  .vlt-name{font-family:var(--font-air);font-weight:700;font-size:52px;line-height:1.02;
+    text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    text-shadow:0 2px 4px rgba(0,0,0,.8)}
+  .vlt-right{display:flex;align-items:center;gap:18px;flex-shrink:0}
+  .vlt-slot{font-family:var(--font-air);font-weight:700;font-size:22px;letter-spacing:3px;
+    color:rgba(255,255,255,.72);text-transform:uppercase;text-align:right}
 
   body.mode-output{background:transparent}
   body.mode-output #controls{display:none}
@@ -289,15 +337,19 @@
     <div class="jm-rows" id="jmRows"></div>
   </div>
 
-  <div id="verdictLT">
+  <div id="verdictLT" class="jm-lt">
+    <div class="lt-head">
+      <div class="lt-kicker"><svg class="gavel" id="vltGavel" viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><circle cx="12" cy="3.6" r="2.2"/><rect x="11" y="3.6" width="2" height="16.4" rx="1"/><rect x="5" y="19.6" width="14" height="2.4" rx="1.2"/><rect x="2.6" y="6.2" width="18.8" height="2" rx="1"/><path d="M1.4 8.6h7.2L5 15.2z"/><path d="M15.4 8.6h7.2L19 15.2z"/></g></svg> Jomboy rules</div>
+      <div class="lt-slot" id="vltSlot"></div>
+    </div>
     <div class="vlt-bar">
       <img id="vltShot" class="vlt-shot" alt="">
       <div class="vlt-body">
-        <div class="vlt-kicker">Judge Jomboy rules</div>
+        <div class="vlt-kicker" id="vltWho">Trev's pick</div>
         <div class="vlt-name" id="vltName"></div>
+        <div class="statline" id="vltStats"></div>
       </div>
       <div class="vlt-right">
-        <div class="vlt-slot" id="vltSlot"></div>
         <div class="jm-petals" id="vltPetals"></div>
       </div>
     </div>
@@ -307,28 +359,33 @@
     <div class="tick-track" id="tickTrack"></div>
   </div>
 
-  <div id="judge">
-    <div class="judge-card">
-      <div class="judge-kicker">Trev &amp; Jake can't agree</div>
-      <div class="judge-title"><span class="gavel" id="gavel">⚖</span> Judge Jomboy</div>
-      <div class="judge-slot" id="judgeSlot">AL · SECOND BASE</div>
-      <div class="judge-pair">
-        <div class="judge-side" id="sideA">
+  <div id="judge" class="jm-lt">
+    <div class="lt-head">
+      <div class="lt-kicker"><svg class="gavel" id="gavel" viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><circle cx="12" cy="3.6" r="2.2"/><rect x="11" y="3.6" width="2" height="16.4" rx="1"/><rect x="5" y="19.6" width="14" height="2.4" rx="1.2"/><rect x="2.6" y="6.2" width="18.8" height="2" rx="1"/><path d="M1.4 8.6h7.2L5 15.2z"/><path d="M15.4 8.6h7.2L19 15.2z"/></g></svg> Judge Jomboy</div>
+      <div class="lt-slot" id="judgeSlot">AL · 2B</div>
+    </div>
+    <div class="judge-pair">
+      <div class="judge-side" id="sideA">
+        <img id="imgA" alt="">
+        <div class="col">
           <div class="who" id="whoA">TREV</div>
-          <img id="imgA" alt="">
           <div class="pick" id="pickA">—</div>
           <div class="tm" id="tmA"></div>
-        </div>
-        <div class="judge-vs">VS</div>
-        <div class="judge-side" id="sideB">
-          <div class="who" id="whoB">JAKE</div>
-          <img id="imgB" alt="">
-          <div class="pick" id="pickB">—</div>
-          <div class="tm" id="tmB"></div>
+          <div class="statline" id="statsA"></div>
         </div>
       </div>
-      <div class="judge-verdict" id="verdict"></div>
+      <div class="judge-vs">VS</div>
+      <div class="judge-side" id="sideB">
+        <img id="imgB" alt="">
+        <div class="col">
+          <div class="who" id="whoB">JAKE</div>
+          <div class="pick" id="pickB">—</div>
+          <div class="tm" id="tmB"></div>
+          <div class="statline" id="statsB"></div>
+        </div>
+      </div>
     </div>
+    <div class="judge-verdict" id="verdict"></div>
   </div>
 </div>
 
@@ -493,7 +550,12 @@ function monthsTaped() {
     return ['AL','NL'].some(lg => mm[lg] && Object.values(mm[lg]).some(v => v.locked));
   });
 }
+// A seeded row carries histKey so a name that never resolved to an id still collects its petals.
+// It belongs to the player who was seeded into that slot, so it has to be dropped the moment
+// somebody else takes the slot — left behind, the new player's petal lands on the old player's
+// record and renames it, which is how one Mike Trout win turned up filed under Byron Buxton.
 const keyOf = v => (v && (v.histKey || v.pid)) || null;
+const vacate = v => { delete v.histKey; };
 const monthsWon = pid => ((store.history[pid] || {}).months || []).slice()
   .sort((a, b) => MONTHS.indexOf(a) - MONTHS.indexOf(b));
 const petalsFor = pid => ((store.history[pid] || {}).months || []).length;
@@ -601,6 +663,90 @@ async function loadPlayers() {
   } catch { allPlayers = []; }
 }
 
+// ── each player's line for the month in question ──────────────────────────────
+// The award is monthly, so the numbers beside a name have to be that month's, not the season's.
+// byDateRange rather than byMonth: the sheet's APRIL takes in the March opening series, and byMonth
+// files those as a separate month 3. Counting stats could be added back together, rate stats can't —
+// a date range gets AVG and ERA right in one call.
+const MONTH_RANGE = {
+  APRIL:     ['03-01', '04-30'],
+  MAY:       ['05-01', '05-31'],
+  JUNE:      ['06-01', '06-30'],
+  JULY:      ['07-01', '07-31'],
+  AUGUST:    ['08-01', '08-31'],
+  SEPTEMBER: ['09-01', '10-31'],
+};
+const HIT_LINE = st => [['AVG', st.avg], ['HR', st.homeRuns], ['RBI', st.rbi], ['OPS', st.ops]];
+const PIT_LINE = st => [['W-L', `${st.wins}-${st.losses}`], ['ERA', st.era],
+                        ['K', st.strikeOuts], ['WHIP', st.whip]];
+
+// The slot decides which line matters — SP and RP get the pitching one. A pitcher parked in a UTIL
+// slot would otherwise get a hitting line of nothing, so the player's own position is the tiebreak;
+// a two-way player stays a hitter unless he's in a pitching slot.
+function preferGroup(pid, pos) {
+  if (pos === 'SP' || pos === 'RP') return 'pitching';
+  const p = allPlayers.find(x => x.id === pid);
+  return p && p.pos === 'P' ? 'pitching' : 'hitting';
+}
+
+// Promises are cached, not just results: Send to Judge and the prefetch behind it can ask for the
+// same player in the same tick, and that should be one request, not two.
+const statPending = new Map();
+const statDone = new Map();
+const statKey = (pid, pos) => `${pid}|${store.season}|${store.month}|${preferGroup(pid, pos)}`;
+
+async function statsFor(pid, pos) {
+  if (!pid) return null;
+  const ck = statKey(pid, pos);
+  if (statDone.has(ck)) return statDone.get(ck);
+  if (statPending.has(ck)) return statPending.get(ck);
+  const job = (async () => {
+    const r = MONTH_RANGE[store.month];
+    let line = null;
+    try {
+      const url = r
+        ? `${API}/people/${pid}/stats?stats=byDateRange&group=hitting,pitching`
+          + `&startDate=${store.season}-${r[0]}&endDate=${store.season}-${r[1]}&season=${store.season}`
+        : `${API}/people/${pid}/stats?stats=season&group=hitting,pitching&season=${store.season}`;
+      const d = await (await tfetch(url)).json();
+      // byDateRange answers with the same split twice; a group with no games in the window comes
+      // back as an empty splits array rather than being left out.
+      const grab = g => {
+        const s = (d.stats || []).find(x => x.group && x.group.displayName === g
+          && (x.splits || []).length && (x.splits[0].stat || {}).gamesPlayed != null);
+        return s ? s.splits[0].stat : null;
+      };
+      const hit = grab('hitting'), pit = grab('pitching');
+      const wantP = preferGroup(pid, pos) === 'pitching';
+      const st = wantP ? (pit || hit) : (hit || pit);
+      if (st) {
+        line = (st === pit ? PIT_LINE : HIT_LINE)(st)
+          .filter(([, v]) => v != null && v !== '' && v !== '-null' && v !== 'null-null')
+          .map(([k, v]) => ({ k, v: String(v) }));
+        if (!line.length) line = null;
+      }
+    } catch { line = null; }                 // no line is a blank row, never a card that won't come up
+    statDone.set(ck, line);
+    statPending.delete(ck);
+    return line;
+  })();
+  statPending.set(ck, job);
+  return job;
+}
+
+const bothPicks = j => [j.a, j.b].filter(p => p && p.pid);
+const statsReady = j => bothPicks(j).every(p => statDone.has(statKey(p.pid, j.pos)));
+async function fillStats(j) {
+  await Promise.all([j.a, j.b].map(async p => {
+    if (p) p.stats = p.pid ? await statsFor(p.pid, j.pos) : null;
+  }));
+}
+// Warm the pair as soon as the argument is set up, so Send to Judge puts the numbers up with the card.
+function prefetchJudgeStats() {
+  const j = judgePayload(null, true);
+  if (j) bothPicks(j).forEach(p => statsFor(p.pid, j.pos));
+}
+
 // ── control rendering ─────────────────────────────────────────────────────────
 let league = 'AL';
 let judgeSlotKey = null;
@@ -644,7 +790,8 @@ function renderSlots() {
             r.appendChild(im);
             r.appendChild(el('span', 'n', p.name));
             r.appendChild(el('span', 't', p.abbr));
-            r.onclick = () => { v.pid = p.id; v.name = p.name; v.team = p.abbr || p.team; save(); renderSlots(); };
+            r.onclick = () => { vacate(v); v.pid = p.id; v.name = p.name; v.team = p.abbr || p.team;
+                                save(); renderSlots(); };
             res.appendChild(r);
           });
       };
@@ -686,7 +833,9 @@ function renderSlots() {
       cont.onclick = () => { v.contested = !v.contested; if (v.contested) judgeSlotKey = key; save(); renderSlots(); updateJudgeNote(); };
       acts.appendChild(cont);
       const clr = el('button', '', '✕');
-      clr.onclick = () => { unlock(key); Object.assign(v, { pid: null, name: '', team: '', locked: false, contested: false, a: null, b: null }); save(); renderSlots(); };
+      clr.onclick = () => { unlock(key); vacate(v);
+        Object.assign(v, { pid: null, name: '', team: '', locked: false, contested: false, a: null, b: null });
+        save(); renderSlots(); };
       acts.appendChild(clr);
     }
     row.appendChild(acts);
@@ -843,16 +992,36 @@ function paintTicker(s) {
   $('ticker').classList.toggle('visible', !!s.tickerOn);
 }
 
+// A hidden graphic gets emptied, not just faded: a headshot left in the DOM is one CSS slip away
+// from being back on air, and that slip is exactly how a stale winner got stuck on screen.
+function stripShot(im) { im.removeAttribute('src'); im.style.visibility = 'hidden'; }
+function paintStats(box, line) {
+  box.innerHTML = '';
+  if (!line || !line.length) return;
+  line.forEach(s => {
+    const c = el('div', 'stat');
+    c.appendChild(el('div', 'k', s.k));
+    c.appendChild(el('div', 'v', s.v));
+    box.appendChild(c);
+  });
+}
+
 function paintJudge(j) {
   const box = $('judge');
-  if (!j) { box.classList.remove('visible'); return; }
-  $('judgeSlot').textContent = `${j.league} · ${j.pos}`;
+  if (!j) {
+    box.classList.remove('visible');
+    ['A', 'B'].forEach(s => { stripShot($('img' + s)); $('pick' + s).textContent = '—';
+      $('tm' + s).textContent = ''; paintStats($('stats' + s), null); });
+    return;
+  }
+  $('judgeSlot').textContent = [j.league, j.pos, j.month].filter(Boolean).join(' · ');
   const set = (side, p) => {
     $('pick' + side).textContent = p && p.name ? p.name : '—';
     $('tm' + side).textContent = p && p.team ? p.team : '';
+    paintStats($('stats' + side), p && p.stats);
     const im = $('img' + side);
     if (p && p.pid) { im.src = headshot(p.pid); im.style.visibility = 'visible'; }
-    else im.style.visibility = 'hidden';
+    else stripShot(im);
   };
   set('A', j.a); set('B', j.b);
   $('sideA').className = 'judge-side' + (j.verdict === 'a' ? ' win' : j.verdict === 'b' ? ' lose' : '');
@@ -862,23 +1031,34 @@ function paintJudge(j) {
     const won = j.verdict === 'a' ? j.a : j.b;
     v.textContent = `JOMBOY RULES: ${(won && won.name) || ''}`;
     v.classList.add('show');
-    const g = $('gavel'); g.classList.remove('gavel'); void g.offsetWidth; g.classList.add('gavel');
+    bangGavel('gavel');
   } else { v.textContent = ''; v.classList.remove('show'); }
   box.classList.add('visible');
 }
 
 function paintVerdict(j) {
   const box = $('verdictLT');
-  if (!j || !j.verdict) { box.classList.remove('visible'); return; }
-  const won = j.verdict === 'a' ? j.a : j.b;
-  if (!won) { box.classList.remove('visible'); return; }
+  const won = j && j.verdict && (j.verdict === 'a' ? j.a : j.b);
+  if (!won) {
+    box.classList.remove('visible');
+    stripShot($('vltShot')); $('vltName').textContent = '';
+    paintStats($('vltStats'), null); $('vltPetals').innerHTML = '';
+    return;
+  }
   const im = $('vltShot');
-  if (won.pid) { im.src = headshot(won.pid); im.style.visibility = 'visible'; } else im.style.visibility = 'hidden';
+  if (won.pid) { im.src = headshot(won.pid); im.style.visibility = 'visible'; } else stripShot(im);
+  $('vltWho').textContent = (j.verdict === 'a' ? "Trev's pick" : "Jake's pick");
   $('vltName').textContent = (won.name || '').toUpperCase();
-  $('vltSlot').textContent = `${j.league} · ${j.pos}${won.team ? ' · ' + won.team : ''}`;
+  $('vltSlot').textContent = [j.league, j.pos, won.team, j.month].filter(Boolean).join(' · ');
+  paintStats($('vltStats'), won.stats);
   const p = $('vltPetals'); p.innerHTML = '';
   p.appendChild(flowerNode(won.months, !!won.daisy, 74));
+  bangGavel('vltGavel');
   box.classList.add('visible');
+}
+function bangGavel(id) {
+  const g = $(id); if (!g) return;
+  g.classList.remove('gavel'); void g.offsetWidth; g.classList.add('gavel');
 }
 
 function applyAir(s) {
@@ -958,17 +1138,20 @@ function updateJudgeNote() {
     ? `Contested: ${c.join(', ')} — showing ${labelOf(judgeSlotKey) || c[0]}`
     : 'Mark a slot contested to load it here.';
   updateWhoIs();
+  prefetchJudgeStats();
 }
 
 // Judge Jomboy takes the contested slot's two candidates. Trev's pick is whoever is in the slot;
 // Jake's is the previous occupant if there was one, otherwise set it by searching again.
-function judgePayload(verdict) {
+function judgePayload(verdict, peek) {
   const key = judgeSlotKey || activeSlots().find(k => slots(league)[k].contested);
   if (!key) return null;
   const v = slots(league)[key];
-  if (!v.a && v.pid) v.a = { pid: v.pid, name: v.name, team: v.team };   // freeze Trev's before a ruling replaces it
+  // freeze Trev's before a ruling replaces it — but a stats prefetch is only looking, and must not
+  // write anything into the slot
+  if (!peek && !v.a && v.pid) v.a = { pid: v.pid, name: v.name, team: v.team };
   return {
-    league, pos: labelOf(key),
+    league, pos: labelOf(key), month: store.month,
     a: v.a || (v.pid ? { pid: v.pid, name: v.name, team: v.team } : null),
     b: v.b || null,
     verdict: verdict || null,
@@ -985,12 +1168,17 @@ $('clearBtn').onclick = () => { air.graphic = 'off'; air.tickerOn = false; air.j
 $('rpToggle').onchange = () => { useRP = $('rpToggle').checked; renderSlots(); if (air.graphic === 'roster') publish(); };
 $('seedBtn').onclick = loadSeed;
 $('tickerBtn').onclick = () => { air.tickerOn = !air.tickerOn; publish(); };
-$('judgeShow').onclick = () => {
+$('judgeShow').onclick = async () => {
   const j = judgePayload(null);
   if (!j) { $('judgeNote').textContent = 'Mark a slot contested first.'; return; }
-  air.graphic = 'judge'; air.judge = j; publish();
+  // Prefetched pair: one publish, numbers and all. Cold: the card goes up bare straight away and the
+  // stat lines follow a beat later — two messages at most, never a poll.
+  const warm = statsReady(j);
+  if (!warm) { air.graphic = 'judge'; air.judge = j; publish(); }
+  await fillStats(j);
+  if (warm || air.graphic === 'judge') { air.graphic = 'judge'; air.judge = j; publish(); }
 };
-function rule(side) {
+async function rule(side) {
   const key = judgeSlotKey || activeSlots().find(k => slots(league)[k].contested);
   if (!key) return;
   const j = judgePayload(side);
@@ -998,11 +1186,14 @@ function rule(side) {
   const won = side === 'a' ? j.a : j.b;
   // the petal they're about to earn, shown on the verdict before the lock is written
   if (won) { won.months = [...monthsWon(won.pid), store.month].filter((m, i, a) => a.indexOf(m) === i); won.daisy = false; }
+  const warm = statsReady(j);
   air.graphic = 'verdict'; air.judge = j; publish();
+  if (!warm) { await fillStats(j); if (air.graphic === 'verdict') { air.judge = j; publish(); } }
   if (!won || !won.pid) return;
   // the ruling is the decision — put them in the slot and award the petal
   const v = slots(league)[key];
-  if (v.locked) unlock(key);
+  if (v.locked) unlock(key);          // hands the petal back to whoever was in the slot — before the swap
+  vacate(v);
   v.a = j.a; v.b = j.b;
   v.pid = won.pid; v.name = won.name; v.team = won.team;
   v.contested = false;

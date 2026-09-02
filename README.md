@@ -73,13 +73,22 @@ For the ones Trev and Jake can't agree on.
 
 1. Mark the slot **⚖ contested**. Whoever is in the slot becomes Trev's pick.
 2. Search **Jake's pick** in the field that appears beside it.
-3. **⚖ Send to Judge** — the full-screen card puts both up, side by side.
-4. **Rule: Trev** / **Rule: Jake** — the loser greys out, the winner lights gold, the gavel bangs,
-   and a **lower third** announces the ruling.
+3. **⚖ Send to Judge** — a **lower third** puts both up side by side, each with his line for the
+   month in question: AVG / HR / RBI / OPS, or W-L / ERA / K / WHIP in the SP and RP slots.
+4. **Rule: Trev** / **Rule: Jake** — the loser greys out, the winner lights gold, the scales tip,
+   and a strip across the bottom of the card announces the ruling. A second lower third then puts
+   the winner up alone with his line and the petal he just earned.
 
 The ruling is the decision, not a caption over one: the winner goes into the slot, locked, with the
 petal awarded. A who-is-who panel in the control spells out which name is whose so nobody rules for
 the wrong side by accident.
+
+**The numbers are the month's, not the season's**, because that's what the award is. They come from
+`byDateRange` rather than `byMonth`: the sheet's APRIL takes in the March opening series, which
+`byMonth` files as a separate month — counting stats could be added back together, AVG and ERA
+can't. Both lines are fetched the moment the argument is set up, so Send to Judge puts the card and
+the numbers up in one push. A player with no games in the window gets a card with no stat row rather
+than a card that won't come up.
 
 ---
 
@@ -93,7 +102,9 @@ Browser Source without re-aligning anything.
   petals. **Show Roster / Hide Roster**.
 - **Ticker** — a bottom scroll announcing each lock-in with headshot, club, month and petals, in the
   same lockup as the trade-deadline scroll. Toggle with **▶ Ticker**.
-- **Judge card** and **verdict lower third**, above.
+- **Judge lower third** and **verdict lower third**, above. Both sit at the same spot — 1160 wide,
+  `bottom:96px`, clear of the 78px ticker — so the ruling replaces the argument without the frame
+  jumping.
 - **Clear All** kills everything on screen at once.
 
 The control page carries a **live preview**: the real output page, on the real topic, scaled to a
@@ -123,6 +134,11 @@ shorten it to something guessable — that's a stranger's write access to your g
 Everything on the wire is absolute state with a sequence number, same as the standings build, so a
 duplicated or late message can't leave the screen disagreeing with the control page.
 
+**Reloading the control page mid-show restarts that sequence at zero**, and the output ignores
+anything at or below the highest number it has already seen — so a reloaded control appears to have
+stopped working until it climbs back past where it was. Refresh the OBS Browser Source after
+reloading the control and both sides start from one again.
+
 ---
 
 ## Notes
@@ -138,5 +154,9 @@ duplicated or late message can't leave the screen disagreeing with the control p
   name comes out blank.
 - **Two slots both read "OF"**, so slots are keyed by id and labelled separately. Keying by label
   would collapse them into one.
+- **A seeded row's `histKey` belongs to the player who was seeded into it**, and has to be dropped
+  when somebody else takes the slot — by search, by ✕, or by a Judge ruling. Left behind, the new
+  player's petal lands on the old player's record *and renames it*: ruling for Trout over Buxton in
+  CF put Trout's win on Buxton's row, so the board showed two Mike Trouts with the wrong months.
 - Sibling tool: [Trade Snapshot](https://github.com/RobSJomboy/mlb_stats) — same house look, same
   transport, different show.
