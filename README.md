@@ -125,8 +125,26 @@ a WebSocket to it, so pushes are instant and a refreshed Browser Source is caugh
 connects. The relay URL rides along in the copied links, so the other machine inherits it.
 
 **ntfy stays wired as an automatic fallback.** With no relay set — or if it can't be reached —
-publishing goes to several public ntfy instances and the output subscribes to all of them. The
-Connection pill names whichever path carried it. `?ntfy=https://host` pins a single host.
+publishing goes to **five** public ntfy instances and the output subscribes to all of them, so it
+takes five simultaneous outages to lose the show. The Connection pill names whichever path carried
+it. `?ntfy=https://host` pins a single host.
+
+**ntfy.sh is deliberately last in that list.** It is the busiest instance and the quickest to answer
+`429 limit reached` for an address; listed first, the host most likely to be rate limited was also
+the host most likely to be believed. The other four — envs.net, adminforge.de, mzte.de, hostux.net —
+were each checked for a POST/poll round trip and for `access-control-allow-origin: *`, without which
+a browser can't read the reply at all.
+
+**Rate limiting is the failure to expect, not downtime.** A 429 is a perfectly well-formed HTTP
+response, so code that only checks "did the request come back" reads it as delivery and shows a
+green light while nothing reaches the screen. Both sides check the status now, and the pill says
+**rate limited** rather than "not reaching topic" — different problem, different fix. If you see it:
+wait a minute, or deploy the relay.
+
+The output used to poll every host every 10 seconds on top of its streams — 18 requests a minute,
+forever, whether or not anyone touched a button, which is roughly 26,000 a day per Browser Source
+and is what earned the 429s. The streams now carry the show and the poll is a fallback: it runs only
+when every stream is down, one host per tick, round-robin.
 
 **Topics are public to anyone who knows the name**, so the suggested one carries a random tail. Don't
 shorten it to something guessable — that's a stranger's write access to your graphics.
@@ -134,14 +152,23 @@ shorten it to something guessable — that's a stranger's write access to your g
 Everything on the wire is absolute state with a sequence number, same as the standings build, so a
 duplicated or late message can't leave the screen disagreeing with the control page.
 
-**Reloading the control page mid-show restarts that sequence at zero**, and the output ignores
-anything at or below the highest number it has already seen — so a reloaded control appears to have
-stopped working until it climbs back past where it was. Refresh the OBS Browser Source after
-reloading the control and both sides start from one again.
+The sequence is **seeded from the clock**, not from zero. It used to start at 1 on every load, so a
+control page reloaded mid-show was ignored until it had climbed back past wherever it left off —
+dozens of presses doing nothing, looking exactly like a dead transport. The clock only goes one way,
+so a reload always resumes above the last number the output saw.
 
 ---
 
 ## Notes
+
+- **ntfy proves a quiet stream is alive with a keepalive every 45 seconds, and it arrives as a
+  *named* SSE event.** `es.onmessage` only ever fires for `message`, so watching it alone makes a
+  perfectly healthy stream on a quiet show look dead. Any staleness check has to listen for
+  `keepalive` and `open` as well, and sit past two of them — the watchdog here is 100s. A 20s one
+  tears every stream down and reopens it three times a minute for as long as the show is up.
+- **Never let two reconnect engines run at once.** `EventSource` retries on its own timetable, which
+  can't be read or changed from JS, so leaving a failed stream open *and* reopening it from a
+  watchdog gives you both. Close on error, then back off 3s→60s with jitter.
 
 - **Rosters and petal history live in `localStorage` on the control machine**, keyed by season and
   month. Last month's board is still there next time — but it's *per browser*, so drive from the

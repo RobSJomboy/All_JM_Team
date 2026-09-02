@@ -490,8 +490,14 @@ const hubURL = room => `${HUB}/r/${encodeURIComponent(room)}`;
 const NET_TIMEOUT_MS = 6000;
 const tfetch = (url, opts) => fetch(url, { ...(opts || {}), signal: AbortSignal.timeout(NET_TIMEOUT_MS) });
 
+// Five instances, and ntfy.sh is LAST on purpose. It is the busiest one and the quickest to answer
+// 429 from a given address — with it first, the host most likely to be rate limited was also the
+// host most likely to be believed. Every one of these was checked for a POST/poll round trip and
+// for `access-control-allow-origin: *`, without which a browser can't read the reply at all.
 const NTFY_HOSTS = params.get('ntfy') ? [params.get('ntfy').replace(/\/$/, '')]
-  : ['https://ntfy.sh', 'https://ntfy.envs.net', 'https://ntfy.adminforge.de'];
+  : ['https://ntfy.envs.net', 'https://ntfy.adminforge.de', 'https://ntfy.mzte.de',
+     'https://ntfy.hostux.net', 'https://ntfy.sh'];
+const NTFY_KEEPALIVE_MS = 45000;      // measured, not guessed: ntfy sends one every 45s
 const TOPIC_KEY = 'alljm-topic';
 let TOPIC = params.get('topic') || '';
 const chan = 'BroadcastChannel' in window ? new BroadcastChannel('alljm') : null;
@@ -870,7 +876,11 @@ function unlock(key) {
 }
 
 // ── what goes on the wire: absolute state, never a toggle ─────────────────────
-let seq = 0;
+// Seeded from the clock rather than 0. The output ignores anything at or below the highest sequence
+// it has seen, so a control page that reloaded mid-show used to start again at 1 and get ignored
+// until it had climbed back past wherever it left off — dozens of presses that did nothing, looking
+// exactly like a dead transport. The clock only goes one way, so a reload always resumes above.
+let seq = Date.now();
 let air = { graphic: 'off', league: 'AL', month: '', rows: [], ticker: [], tickerOn: false, judge: null, seq: 0 };
 
 function rowsFor(lg) {
@@ -910,10 +920,15 @@ function publish() {
 function ntfyPublish(body) {
   // Green on the FIRST host that takes it — waiting for all of them let one dead host hold the
   // verdict forever, so the pill read red while the graphic was already out.
-  let ok = false, done = 0;
+  // r.ok matters: a 429 is a perfectly well-formed HTTP response, and treating it as delivery is
+  // how the pill sat green through a show where nothing was reaching the screen.
+  let ok = false, done = 0, limited = 0;
   NTFY_HOSTS.forEach(h => tfetch(`${h}/${encodeURIComponent(TOPIC)}`, { method: 'POST', body })
-    .then(r => { if (r.ok && !ok) { ok = true; setConn(true, 'ntfy'); } }).catch(() => {})
-    .finally(() => { if (++done === NTFY_HOSTS.length && !ok) setConn(false); }));
+    .then(r => {
+      if (r.status === 429) limited++;
+      if (r.ok && !ok) { ok = true; setConn(true, 'ntfy'); }
+    }).catch(() => {})
+    .finally(() => { if (++done === NTFY_HOSTS.length && !ok) setConn(false, null, limited && 'limited'); }));
 }
 
 // ── output rendering ──────────────────────────────────────────────────────────
@@ -1084,15 +1099,24 @@ function applyAir(s) {
 }
 
 // ── wiring ────────────────────────────────────────────────────────────────────
-function setConn(ok, via) {
+// `why` names the failure. "Rate limited" and "can't reach it" are the same red pill but completely
+// different problems — one is waited out or fixed with the relay, the other is the network — and
+// guessing wrong mid-show costs the segment.
+function setConn(ok, via, why) {
   const p = $('connStatus'); if (!p) return;
   p.classList.toggle('ok', !!ok);
   p.textContent = ok ? (via ? `connected · ${via}` : 'connected')
-                     : (TOPIC ? 'not reaching topic' : 'not connected');
+                     : (!TOPIC ? 'not connected'
+                        : why === 'limited' ? 'rate limited' : 'not reaching topic');
   $('copyOutBtn').disabled = !TOPIC;
   $('copyCtlBtn').disabled = !TOPIC;
   const h = $('connHint');
-  if (TOPIC && !ok) { h.textContent = "Can't reach any ntfy host — OBS will NOT update."; h.className = 'hint warn'; }
+  if (TOPIC && !ok && why === 'limited') {
+    h.textContent = 'Every ntfy host answered 429 — too many requests from this address. '
+      + 'Wait a minute, or deploy the relay and paste it in the Relay box.';
+    h.className = 'hint warn';
+  }
+  else if (TOPIC && !ok) { h.textContent = "Can't reach any ntfy host — OBS will NOT update."; h.className = 'hint warn'; }
   else if (TOPIC) { h.textContent = 'Copy the OBS URL into a Browser Source · 1920×1080'; h.className = 'hint'; }
   else { h.textContent = 'Pick any topic name — both computers connect to the same one.'; h.className = 'hint'; }
 }
@@ -1284,26 +1308,86 @@ if (isOutput) {
       } catch {}
     };
     poll(); setInterval(poll, 15000);
-  } else if (TOPIC) NTFY_HOSTS.forEach(host => {
-    let es = null, last = Date.now();
-    const open = () => { if (es) es.close(); es = new EventSource(`${host}/${encodeURIComponent(TOPIC)}/sse`);
-      es.onmessage = ev => { last = Date.now(); try { apply(JSON.parse(ev.data)); } catch {} };
-      es.onerror = () => {}; };
-    open();
-    setInterval(() => { if (Date.now() - last > 20000) { open(); last = Date.now(); } }, 5000);
-    let since = Math.floor(Date.now() / 1000);
-    const poll = async from => {
+  } else if (TOPIC) {
+    // ── ntfy: one stream per host, with a slow poll behind all of them ──────────────────────────
+    // What was wrong here, because it is easy to write again: liveness was taken from es.onmessage
+    // alone. ntfy proves a quiet stream is alive by sending a keepalive every 45s, but it arrives
+    // as a NAMED SSE event and onmessage only ever fires for `message` — so on a show where nobody
+    // touched a button, every stream looked dead after 20s and was torn down and reopened. Three
+    // hosts, a reopen every 20s, plus a poll every 10s each: about 27 requests a minute, forever,
+    // doing nothing. That is what trips ntfy's rate limit, and once a host answers 429 nothing
+    // reaches the screen at all.
+    //
+    // So: keepalives count as proof of life, the watchdog sits past two of them, a failed stream
+    // backs off instead of being retried on a fixed tick, and the poll is a fallback for when the
+    // streams are actually down rather than a second engine running alongside them.
+    const STREAM_DEAD_MS = NTFY_KEEPALIVE_MS * 2 + 10000;      // 100s — a healthy quiet stream never trips it
+    const UNPROVEN_MS = 30000;                                 // a stream that never said `open` isn't one
+    // `alive` is the last time the host PROVED itself — an event, or a poll that really answered.
+    // `tried` is only when we last opened a socket. Keeping them apart matters: stamping `alive` at
+    // open time made a host that never connects look healthy, which suppressed the fallback poll
+    // and left the backup with no backup. Found by pinning a dead host and watching nothing happen.
+    const links = NTFY_HOSTS.map(host => ({ host, es: null, alive: 0, tried: 0, fails: 0, coolUntil: 0 }));
+    const proven = l => l.alive > 0 && Date.now() - l.alive < STREAM_DEAD_MS;
+    const anyAlive = () => links.some(proven);
+
+    const open = l => {
+      if (Date.now() < l.coolUntil) return;
+      try { if (l.es) l.es.close(); } catch {}
+      l.tried = Date.now();
+      try {
+        l.es = new EventSource(`${l.host}/${encodeURIComponent(TOPIC)}/sse`);
+      } catch { l.es = null; return; }
+      // `open` and `keepalive` are ntfy's own proof the stream is up; `message` is the payload.
+      ['open', 'keepalive', 'poll_request'].forEach(ev =>
+        l.es.addEventListener(ev, () => { l.alive = Date.now(); l.fails = 0; }));
+      l.es.onmessage = ev => {
+        l.alive = Date.now(); l.fails = 0;
+        try { apply(JSON.parse(ev.data)); } catch {}
+      };
+      // Close on error rather than leaving it be: EventSource retries on its own timetable as well,
+      // and two reconnect engines under one watchdog is how the storm gets going.
+      l.es.onerror = () => {
+        try { l.es && l.es.close(); } catch {}
+        l.es = null;
+        l.fails++;
+        const back = Math.min(60000, 3000 * Math.pow(2, l.fails - 1));
+        l.coolUntil = Date.now() + back + Math.random() * 2000;   // jitter: don't retry in lockstep
+      };
+    };
+    links.forEach(open);
+    setInterval(() => links.forEach(l => {
+      // A stream that has proved itself gets until two keepalives are missed. One that never did
+      // gets a much shorter rope — a socket hanging in CONNECTING throws no error for a long time.
+      const stalled = l.alive ? Date.now() - l.alive > STREAM_DEAD_MS
+                              : Date.now() - l.tried > UNPROVEN_MS;
+      if (!l.es || l.es.readyState === 2 || stalled) open(l);
+    }), 20000);
+
+    // The poll exists for two jobs only: catch up a Browser Source OBS just refreshed, and carry
+    // the show if every stream is blocked. One host per tick, round-robin, so a quiet show costs
+    // two requests a minute across the whole pool instead of thirty.
+    let turn = 0, since = Math.floor(Date.now() / 1000);
+    const poll = async (l, from) => {
       const f = from != null ? from : since;
       if (from == null) since = Math.floor(Date.now() / 1000);
       try {
-        const txt = await (await tfetch(`${host}/${encodeURIComponent(TOPIC)}/json?poll=1&since=${f}`)).text();
-        last = Date.now();
-        txt.split('\n').filter(Boolean).forEach(l => { try { apply(JSON.parse(l)); } catch {} });
+        const r = await tfetch(`${l.host}/${encodeURIComponent(TOPIC)}/json?poll=1&since=${f}`);
+        if (r.status === 429) { l.coolUntil = Date.now() + 120000; return; }   // sit out, don't hammer
+        if (!r.ok) return;
+        l.alive = Date.now();
+        (await r.text()).split('\n').filter(Boolean)
+          .forEach(line => { try { apply(JSON.parse(line)); } catch {} });
       } catch {}
     };
-    setInterval(() => poll(), 10000);
-    poll('10m');            // an OBS refresh mid-show gets the current graphic straight back
-  });
+    setInterval(() => {
+      if (anyAlive()) return;                       // the streams have it; stay off the wire
+      const l = links[turn++ % links.length];
+      if (Date.now() >= l.coolUntil) poll(l);
+    }, 30000);
+    // Backfill on boot, so a refreshed Browser Source gets the current graphic straight back.
+    links.forEach((l, i) => setTimeout(() => poll(l, '10m'), i * 400));
+  }
 } else {
   $('buildStamp').textContent = document.lastModified || '—';
   // A stale cached copy fails in ways that look like a broken transport. Say so outright.
