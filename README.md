@@ -1,7 +1,7 @@
 # All-JM Team
 
 The monthly All-JM episode, on screen. Build the AL and NL boards, lock in the month's winners,
-and put the roster, the ticker and Judge Jomboy on air.
+and put the roster, the ticker and the Silver Daisy on air.
 
 One HTML file. No build step, no npm, no API key. Player names and headshots come from the public
 MLB StatsAPI; the league crests are embedded.
@@ -16,15 +16,17 @@ MLB StatsAPI; the league crests are embedded.
 https://robsjomboy.github.io/All_JM_Team/?topic=your-topic-name
 ```
 
-**OBS** — Browser Source, 1920×1080, on the machine running the show:
+**OBS** — two Browser Sources, both 1920×1080, on the machine running the show:
 
 ```
-https://robsjomboy.github.io/All_JM_Team/?output=1&topic=your-topic-name
+Graphics: https://robsjomboy.github.io/All_JM_Team/?output=1&layer=main&topic=your-topic-name
+Ticker:   https://robsjomboy.github.io/All_JM_Team/?output=1&layer=ticker&topic=your-topic-name
 ```
 
-Both must carry the **same topic**. That's the only rule. Hit **Connect**, then **Copy OBS URL** and
-paste it into the Browser Source — don't type it by hand, the copied one carries the topic and the
-build stamp.
+Put the **Ticker** source at the **top of the scene's source list** so the scroll sits above the
+title bar and every other bar. Both must carry the **same topic**. Hit **Connect**, then **Copy
+Graphics URL** / **Copy Ticker URL** — don't type them by hand. An old `?output=1` link with no
+`layer` still shows everything in one source.
 
 Leave "Shutdown source when not visible" **unchecked** so the graphic doesn't drop when you switch
 scenes.
@@ -34,61 +36,40 @@ scenes.
 ## The board
 
 Slots follow the All-JM sheet: **C, 1B, 2B, SS, 3B, OF, CF, OF, DH, SP**, then the three **UTIL**
-spots for the fan vote. **RP is a toggle** — off by default, on for the months you run one.
+spots for the community vote. **RP is a toggle** — off by default.
 
-Search fills a slot. **Lock In** puts that player on the board and awards their petal for the month.
+Search fills a slot. **Lock In** puts that player on the board for the month.
 
-**April, May and June 2026 are pre-loaded.** Hit **Load 2026 History** once, on the machine you'll
-drive from. Names are resolved against the live player index rather than stored as ids, so a name
-that doesn't match surfaces as a miss in the note under Connection instead of quietly showing
-another player's face.
+**The board ships inside the page.** Every decided month is baked into `BAKED` in `index.html`
+(with player ids), so it's there in any browser, on any computer, before anything is clicked.
+Edits on top of that are saved locally **and** to the relay room `alljm-board`, and every page load
+reads that room back — lock someone in on one laptop and the other laptop has it. Each
+league-month carries an edit time `t`; when two copies disagree the newer one wins (baked = 0).
 
-**The month dropdown is the archive.** Pick April, hit **Show Roster**, and April's team goes up.
+A browser still holding the old `alljm-store` save is folded in on first open: months the file
+doesn't have come over whole; months it does have only get their empty slots filled, so a
+half-entered month can't wipe a full one. Then it's pushed to the relay.
+
+**SEPTEMBER is the Final All-JM.** It's stored as `SEPTEMBER`, but the menu, the panel and the
+ticker call it **Final All-JM** and give it gold foil, a shimmer and a glow.
 
 ---
 
 ## Petals and the Silver Daisy
 
-Locking a player in for a month adds a **petal to their flower**. Unlocking takes it back —
-otherwise a mis-click quietly inflates someone's flower for the rest of the season.
+Petals are read straight off the board — one per month the player is locked in on. There's no
+separate history to drift out of step, so unlocking or clearing a slot takes the petal back on its
+own.
 
-The petals are the flower: one win is a single petal, and they fill out into a daisy as the months
-stack up. Petals sit evenly around the circle rather than at their month's angle — placed by month,
-three wins sat as a lopsided fan on one side; evenly spaced, any count reads as a deliberate flower.
+Be on **every month taped so far** (at least two) and the flower's centre lights gold and it
+turns: **The Silver Daisy**. Daisy winners' **names go gold** on the panel and the ticker.
 
-Win **every month taped so far** and the centre lights **gold** and the flower turns slowly: that's
-**The Silver Daisy**. Miss a month and the daisy is out of reach, so nothing extra is drawn — the
-flower is just silver-centred. A sweep is counted against months that actually have a locked roster
-rather than the calendar, and needs at least two of them, so nobody collects one in the season's
-first episode.
+When a lock **completes** a sweep, the **Silver Daisy celebration** goes up on its own (switchable):
+"2026 SILVER DAISY WINNER", the name in gold foil, the full flower blooming, and a few small
+gold-and-silver fireworks. It clears after 12s. **✿ Daisy** on any daisy holder's slot, or **✿
+Show** in the Silver Daisy list, puts it up by hand; **✕ Hide Daisy** takes it down.
 
-As of the seeded board, six players are perfect through April–June: Trout, Muncy, Olson, Schwarber,
-Ohtani and Alvarez.
-
----
-
-## Judge Jomboy
-
-For the ones Trev and Jake can't agree on.
-
-1. Mark the slot **⚖ contested**. Whoever is in the slot becomes Trev's pick.
-2. Search **Jake's pick** in the field that appears beside it.
-3. **⚖ Send to Judge** — a **lower third** puts both up side by side, each with his line for the
-   month in question: AVG / HR / RBI / OPS, or W-L / ERA / K / WHIP in the SP and RP slots.
-4. **Rule: Trev** / **Rule: Jake** — the loser greys out, the winner lights gold, the scales tip,
-   and a strip across the bottom of the card announces the ruling. A second lower third then puts
-   the winner up alone with his line and the petal he just earned.
-
-The ruling is the decision, not a caption over one: the winner goes into the slot, locked, with the
-petal awarded. A who-is-who panel in the control spells out which name is whose so nobody rules for
-the wrong side by accident.
-
-**The numbers are the month's, not the season's**, because that's what the award is. They come from
-`byDateRange` rather than `byMonth`: the sheet's APRIL takes in the March opening series, which
-`byMonth` files as a separate month — counting stats could be added back together, AVG and ERA
-can't. Both lines are fetched the moment the argument is set up, so Send to Judge puts the card and
-the numbers up in one push. A player with no games in the window gets a card with no stat row rather
-than a card that won't come up.
+Judge Jomboy was removed in November 2026.
 
 ---
 
@@ -100,11 +81,10 @@ Browser Source without re-aligning anything.
 
 - **Roster** — crest, month title, league, then a row per slot: position, headshot, name, club and
   petals. **Show Roster / Hide Roster**.
-- **Ticker** — a bottom scroll announcing each lock-in with headshot, club, month and petals, in the
-  same lockup as the trade-deadline scroll. Toggle with **▶ Ticker**.
-- **Judge lower third** and **verdict lower third**, above. Both sit at the same spot — 1160 wide,
-  `bottom:96px`, clear of the 78px ticker — so the ruling replaces the argument without the frame
-  jumping.
+- **Ticker** — the selected month's whole board, both leagues, behind a gold label
+  ("2026 AUGUST ALL-JM"). **Above title bar** sets its bottom edge at y 988 (just over the TB title
+  bar), **Bottom edge** at the frame edge, and **Nudge px** fine-tunes either. Toggle with **▶ Ticker**.
+- **Silver Daisy** — centred card sitting just above the ticker, fireworks on a canvas behind it.
 - **Clear All** kills everything on screen at once.
 
 The control page carries a **live preview**: the real output page, on the real topic, scaled to a
@@ -170,9 +150,9 @@ so a reload always resumes above the last number the output saw.
   can't be read or changed from JS, so leaving a failed stream open *and* reopening it from a
   watchdog gives you both. Close on error, then back off 3s→60s with jitter.
 
-- **Rosters and petal history live in `localStorage` on the control machine**, keyed by season and
-  month. Last month's board is still there next time — but it's *per browser*, so drive from the
-  same machine each month or the petals won't follow.
+- **The board is baked into the page and synced through the relay room `alljm-board`** — it no
+  longer lives in one browser. When a month is finished, copy it into `BAKED` so it survives even
+  if the relay room is ever cleared.
 - **Month labels must match the sheet exactly.** A month spelled differently is invisible to the
   sweep check, which silently hands out a Silver Daisy on an incomplete run. That bug was real:
   `MAR/APR` vs `APRIL` gave Cody Bellinger a daisy for two months out of three.
@@ -181,9 +161,8 @@ so a reload always resumes above the last number the output saw.
   name comes out blank.
 - **Two slots both read "OF"**, so slots are keyed by id and labelled separately. Keying by label
   would collapse them into one.
-- **A seeded row's `histKey` belongs to the player who was seeded into it**, and has to be dropped
-  when somebody else takes the slot — by search, by ✕, or by a Judge ruling. Left behind, the new
-  player's petal lands on the old player's record *and renames it*: ruling for Trout over Buxton in
-  CF put Trout's win on Buxton's row, so the board showed two Mike Trouts with the wrong months.
+- **`histKey` is gone.** Petals used to live in a separate history keyed by a seeded row's
+  `histKey`, and a key left behind after a slot changed hands filed one player's petal on another's
+  record. Petals are now counted off the board itself, so there's nothing to drift.
 - Sibling tool: [Trade Snapshot](https://github.com/RobSJomboy/mlb_stats) — same house look, same
   transport, different show.
